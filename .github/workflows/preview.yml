@@ -31,13 +31,25 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Mirrors the upstream publish-docker-image action: the Dockerfile's
+      # native-sqlite stage requires this ARG and fails the build if it is empty.
+      - name: Resolve native dependency versions
+        id: native-dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          better_sqlite3="$(jq -er '.dependencies["better-sqlite3"] | select(type == "string")' package.json)"
+          echo "better_sqlite3=${better_sqlite3}" >> "${GITHUB_OUTPUT}"
+
       - name: Build and Push
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           platforms: linux/amd64
-          build-args: BUILDER_PLATFORM=linux/amd64
+          build-args: |
+            BETTER_SQLITE3_VERSION=${{ steps.native-dependencies.outputs.better_sqlite3 }}
+            BUILDER_PLATFORM=linux/amd64
           tags: ${{ env.IMAGE }}:victorialogs-preview
           cache-from: type=gha
           cache-to: type=gha,mode=max
